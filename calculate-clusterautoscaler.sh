@@ -53,7 +53,7 @@ check_connected(){
 }
 
 check_machinesets(){
-  MACHINESETS=$($OC_CMD get -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' --no-headers  --request-timeout=3 machineset -n openshift-machine-api)
+  MACHINESETS=$($OC_CMD get  machineset -n openshift-machine-api -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' --no-headers  --request-timeout=3)
   if [ -z "$MACHINESETS" ]; then
     err "There's no MachineSet created on cluster and it's prereq to configure ClusterAutoScaler"
     exit 1
@@ -68,7 +68,6 @@ check_machinesets(){
 }
 
 get_nodes(){
-  # Getting all nodes
   NODES_LIST=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get nodes -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}')
   NUMBER_OF_NODES=0
   for node in $NODES_LIST;
@@ -89,13 +88,29 @@ print_clusterautoscaler(){
   if [[ "${CLUSTERAUTOSCALER_CONFIGURED}" == "true" ]]; then
     log "You have ClusterAutoscaler 'default' configured"
     log   "--------------------------------"
-    max_cores=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.cores.max}')
-    max_memory=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.memory.max}')
-    max_nodes=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.maxNodesTotal}')
-    log "Current value on spec.resourceLimits.cores.max for ClusterAutoscaler object 'default' is: $max_cores"
-    log "Current value on spec.resourceLimits.memory.max for clusterAutoscaler object 'default' is: $max_memory GB"
-    log "Current value on spec.resourceLimits.maxNodesTotal for clusterAutoscaler object 'default' is: $max_nodes"
+    MAX_CORES=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.cores.max}')
+    MAX_MEMORY=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.memory.max}')
+    MAX_NODES=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.maxNodesTotal}')
+    log "Current value on spec.resourceLimits.cores.max for ClusterAutoscaler object 'default' is: $MAX_CORES"
+    log "Current value on spec.resourceLimits.memory.max for clusterAutoscaler object 'default' is: $MAX_MEMORY GB"
+    log "Current value on spec.resourceLimits.maxNodesTotal for clusterAutoscaler object 'default' is: $MAX_NODES"
     log   "--------------------------------"
+  fi
+}
+
+print_machineautoscaler(){
+  if [[ "${MACHINEAUTOSCALER_CONFIGURED}" == "true" ]]; then
+    log "You have MachineAutoscaler configured"
+    MACHINEAUTOSCALER=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get machineautoscaler -n openshift-machine-api -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}')
+    log   "--------------------------------"
+    for ma in $MACHINEAUTOSCALER; do
+       MAX_REPLICAS=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get machineautoscaler -n openshift-machine-api $ma -o 'jsonpath={.spec.maxReplicas}')
+       MIN_REPLICAS=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get machineautoscaler -n openshift-machine-api $ma -o 'jsonpath={.spec.minReplicas}')
+       log "machineAutoscaler '$ma' has found"
+       log "minReplicas on '$ma' is: $MIN_REPLICAS"
+       log "maxReplicas on '$ma' is: $MAX_REPLICAS"
+       log   "---------------"
+    done
   fi
 }
 
@@ -119,5 +134,6 @@ print_recommendations
 check_autoscaler_configured
 print_clusterautoscaler
 check_machinescaler_configured
+print_machineautoscaler
 
 log "For more vist https://docs.openshift.com/container-platform/4.11/machine_management/applying-autoscaling.html"
