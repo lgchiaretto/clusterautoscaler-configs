@@ -26,6 +26,7 @@ check_autoscaler_configured() {
   CLUSTERAUTOSCALER=`$OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default 2> /dev/null`
   if [[ -z $CLUSTERAUTOSCALER ]]; then
     log "You don't have ClusterAutoscaler configured"
+    log   "--------------------------------"
   else
     CLUSTERAUTOSCALER_CONFIGURED=true
   fi
@@ -35,6 +36,7 @@ check_machinescaler_configured() {
   MACHINEAUTOSCALER=`$OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get machineautoscaler -n openshift-machine-api 2> /dev/null`
   if [[ -z $MACHINEAUTOSCALER ]]; then
     log "You don't have MachineAutoscaler configured"
+    log   "--------------------------------"
   else
     MACHINEAUTOSCALER_CONFIGURED=true
   fi
@@ -65,11 +67,10 @@ check_machinesets(){
   log   "--------------------------------"
 }
 
-print_nodes(){
+get_nodes(){
   # Getting all nodes
   NODES_LIST=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get nodes -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}')
   NUMBER_OF_NODES=0
-  log   "--------------------------------"
   for node in $NODES_LIST;
   do
     ((NUMBER_OF_NODES++))
@@ -82,6 +83,20 @@ print_nodes(){
       log   "---------------"
     fi
   done
+}
+
+print_clusterautoscaler(){
+  if [[ "${CLUSTERAUTOSCALER_CONFIGURED}" == "true" ]]; then
+    log "You have ClusterAutoscaler 'default' configured"
+    log   "--------------------------------"
+    max_cores=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.cores.max}')
+    max_memory=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.memory.max}')
+    max_nodes=$($OC_CMD --request-timeout="$DEFAULT_TIMEOUT" get clusterautoscaler default -o 'jsonpath={.spec.resourceLimits.maxNodesTotal}')
+    log "Current value on spec.resourceLimits.cores.max for ClusterAutoscaler object 'default' is: $max_cores"
+    log "Current value on spec.resourceLimits.memory.max for clusterAutoscaler object 'default' is: $max_memory GB"
+    log "Current value on spec.resourceLimits.maxNodesTotal for clusterAutoscaler object 'default' is: $max_nodes"
+    log   "--------------------------------"
+  fi
 }
 
 print_recommendations(){
@@ -99,9 +114,10 @@ print_recommendations(){
 # Begin
 check_connected
 check_machinesets
-print_nodes
+get_nodes
 print_recommendations
 check_autoscaler_configured
+print_clusterautoscaler
 check_machinescaler_configured
 
 log "For more vist https://docs.openshift.com/container-platform/4.11/machine_management/applying-autoscaling.html"
